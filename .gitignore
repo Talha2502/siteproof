@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Server data (uploaded images, report records) — never commit
+server/data/
+
+# Environment and secrets
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*

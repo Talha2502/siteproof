@@ -2,6 +2,9 @@ import os from 'node:os';
 import express from 'express';
 import { HOST, PORT, REPORTS_DIR, UPLOADS_DIR } from './config';
 import { errorHandler, HttpError } from './errors';
+import { FaultState } from './faults/config';
+import { faultMiddleware } from './faults/middleware';
+import { adminRoutes } from './faults/routes';
 import { reportRoutes } from './reports/routes';
 import { ReportStore } from './reports/store';
 import { fileRoutes, UploadedImages } from './uploads/files';
@@ -13,8 +16,12 @@ await store.init();
 const uploadStore = new NonTruncatingFileStore({ directory: UPLOADS_DIR });
 const images = new UploadedImages(uploadStore);
 
+const faults = new FaultState();
+
 const app = express();
 
+// Runs first so faults can hit uploads too. It skips /admin and /health itself.
+app.use(faultMiddleware(faults));
 // tus reads the raw request body, so it is mounted before the JSON parser.
 app.use(uploadRoutes(createTusServer(uploadStore)));
 app.use(express.json());
@@ -23,6 +30,7 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true, time: new Date().toISOString() });
 });
 
+app.use(adminRoutes(faults, [REPORTS_DIR, UPLOADS_DIR]));
 app.use(reportRoutes(store, images));
 app.use(fileRoutes(images));
 

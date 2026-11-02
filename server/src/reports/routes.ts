@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { HttpError } from '../errors';
 import type { StoredReport } from '../types';
+import type { UploadedImages } from '../uploads/files';
 import type { ReportStore } from './store';
 import { parseReportId, parseReportInput } from './validate';
 
@@ -9,12 +10,16 @@ function toView(report: StoredReport) {
   return { ...report, imageUrls: report.imageIds.map((id) => `/files/${id}`) };
 }
 
-export function reportRoutes(store: ReportStore): Router {
+export function reportRoutes(store: ReportStore, images: UploadedImages): Router {
   const router = Router();
 
   router.put('/reports/:id', async (req, res) => {
     const id = parseReportId(req.params.id);
     const input = parseReportInput(req.body);
+    for (const imageId of input.imageIds) {
+      const check = await images.check(imageId);
+      if (!check.ok) throw new HttpError(422, check.code, check.message);
+    }
     const result = await store.put(id, input);
 
     switch (result.outcome) {

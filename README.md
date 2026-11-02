@@ -43,3 +43,12 @@ curl -s localhost:3000/reports                                                  
 ```
 
 Each report is stored as a single JSON file. Writes go to a temp file that is fsynced and then renamed into place, so a crash leaves either no file or a complete one. PUTs for the same ID are serialised by an in-process lock, so two simultaneous first attempts produce exactly one `201`. IDs must be UUIDs, which blocks path traversal, and are lowercased so that case differences cannot split one report into two.
+
+### Photos upload resumably (tus)
+
+Photos are sent with the [tus](https://tus.io) protocol at `/uploads`, in 256 KB pieces. If the connection drops, the app asks the server how much arrived (`HEAD`) and continues from there, so a 2G upload never starts over.
+
+- **The app chooses each upload's ID**, the photo's UUID sent as `uploadId` metadata. Every retry therefore addresses the same upload.
+- **A repeated "create" can never wipe a photo.** By default the file store empties the file on every `POST`. SiteProof refuses a `POST` for an ID that already exists with `409`, and the app responds by checking the offset and resuming. tus holds a per-upload lock around creation, so two duplicate `POST`s cannot race each other.
+- **Only JPEGs of 5 MB or less** are accepted (`415` for other types, `413` when too large). A report is accepted only once every one of its photos is fully uploaded and its bytes really start with a JPEG signature. Otherwise the server answers `422` with `image_missing`, `image_incomplete`, `image_not_jpeg` or `image_too_large`.
+- `GET /files/:imageId` serves a completed photo as `image/jpeg`.

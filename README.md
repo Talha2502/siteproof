@@ -37,6 +37,18 @@ app/src/
 
 `core/` is plain TypeScript that never touches React Native. That's what lets the whole upload path be tested with Jest, with fake networks that drop, hang and lose responses. The boundary is enforced, not just a convention. ESLint fails if any file in `core/` imports a package (`react-native`, a native module, anything) or reaches into `adapters/`, `ui/` or `app/`. `core/` can only import its own files.
 
+### Adapters
+
+| Port | Implementation | Why |
+|---|---|---|
+| Report storage | SQLite via `@op-engineering/op-sqlite` | Real transactions: a report and its photos are saved together or not at all. WAL mode with `synchronous = FULL`, so "Saved on this phone" survives a power cut, not just a crash. Every write runs in its own transaction, so one can never be rolled back with another. |
+| Photo files | `@dr.pogodin/react-native-fs` | Reads any byte range straight into an `ArrayBuffer` for each 256 KB piece. Photos live at `<Documents>/reports/<reportId>/<imageId>.jpg`, one folder per report, so deleting a report is one call. |
+| HTTP | Built-in `XMLHttpRequest` | React Native's `fetch` has no upload progress, and progress is what tells the stall timeout a slow upload is still alive. No library needed. |
+| Network status | `@react-native-community/netinfo` | Uses "is there a network link" (`isConnected`), not "can we reach the internet" (`isInternetReachable`). The latter checks a public website, so on a test Wi-Fi with no internet it would wrongly say offline even though the server is right there. |
+| IDs | `react-native-get-random-values` | Report and photo IDs are the keys that stop duplicates, so they come from a secure random source. Hermes doesn't provide one by itself. |
+
+These were checked on an Android emulator against the real server with uploads throttled to 2G speeds, 30% of upload requests cut off mid-body, and the app force-stopped partway through. Result: exactly one report on the server, both photos byte-for-byte identical, and no local files left behind.
+
 ### How a report gets delivered
 
 1. **Submit** saves the report and its photo list in one database transaction. Only then does the app say "Saved on this phone".

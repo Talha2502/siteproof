@@ -62,6 +62,24 @@ describe('classify', () => {
     }
   });
 
+  it('retries protocol glitches but stops when a photo file is missing on the phone', () => {
+    expect(
+      classify({ kind: 'unexpected', message: 'No Upload-Offset' }),
+    ).toEqual({
+      kind: 'transient',
+      message: 'No Upload-Offset',
+    });
+    expect(
+      classify({
+        kind: 'localFile',
+        message: 'A photo is missing on this phone',
+      }),
+    ).toEqual({
+      kind: 'permanent',
+      message: 'A photo is missing on this phone',
+    });
+  });
+
   it('treats 404 on the report endpoint as permanent (wrong server, not a vanished upload)', () => {
     expect(classify(http('putReport', 404)).kind).toBe('permanent');
   });

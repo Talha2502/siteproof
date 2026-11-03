@@ -43,6 +43,8 @@ export interface TransportResponse {
 export interface UploadResponse extends TransportResponse {
   /** `Upload-Offset` header, if present. */
   offset?: number;
+  /** `Location` header, if present (on creation). */
+  location?: string;
 }
 
 export interface CreateUploadRequest {

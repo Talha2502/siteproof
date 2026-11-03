@@ -18,7 +18,11 @@ export type Failure =
   /** No bytes progressed, or no response headers, within the stall timeout. */
   | { kind: 'stall' }
   /** A response with a status the engine did not expect. */
-  | { kind: 'http'; operation: Operation; status: number; retryAfter?: string };
+  | { kind: 'http'; operation: Operation; status: number; retryAfter?: string }
+  /** The server broke the protocol (e.g. no Upload-Offset), or saving progress failed. */
+  | { kind: 'unexpected'; message: string }
+  /** A photo is missing or shorter than recorded on this phone: it can never be sent. */
+  | { kind: 'localFile'; message: string };
 
 export interface Classification {
   kind: 'transient' | 'permanent';
@@ -63,6 +67,11 @@ export function classify(failure: Failure): Classification {
   if (failure.kind === 'network')
     return transient('No connection to the server');
   if (failure.kind === 'stall') return transient('The connection stalled');
+  // Retrying beats stranding the report: a glitch may pass, and a persistent
+  // one keeps the report safely on the phone, backing off up to once a minute.
+  if (failure.kind === 'unexpected') return transient(failure.message);
+  if (failure.kind === 'localFile')
+    return { kind: 'permanent', message: failure.message };
 
   const { operation, status } = failure;
   if (TRANSIENT_STATUSES.has(status))

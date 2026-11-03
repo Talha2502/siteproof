@@ -1,0 +1,144 @@
+// What the Outbox says about each report. One glance must tell whether work is
+// safe (saved), moving, done, or needs the user, and "saved on this phone" and
+// "on the server" never share a sentence.
+
+import type { OutboxSnapshot, SendingProgress } from './engine';
+import type { LocalReport } from './types';
+
+export type StatusTone = 'saved' | 'moving' | 'done' | 'attention';
+
+export interface StatusView {
+  tone: StatusTone;
+  text: string;
+  /** 0–1 across all of the report's photos, while uploading. */
+  progress?: number;
+  /** The user can (and should) act: only parked reports can be removed. */
+  canRemove: boolean;
+}
+
+export interface StatusContext {
+  online: boolean | undefined;
+  now: number;
+  sending?: SendingProgress;
+  /** Formats an ISO time as the phone's local clock time, e.g. "14:32". */
+  formatTime: (iso: string) => string;
+}
+
+function waitText(ms: number): string {
+  const seconds = Math.max(1, Math.ceil(ms / 1000));
+  if (seconds < 60) return `${seconds} s`;
+  return `${Math.ceil(seconds / 60)} min`;
+}
+
+function inFlightBytes(report: LocalReport, sending?: SendingProgress): number {
+  return sending?.reportId === report.id ? sending.sentBytes : 0;
+}
+
+function uploadingView(
+  report: LocalReport,
+  sending?: SendingProgress,
+): StatusView {
+  const total = report.images.reduce((sum, image) => sum + image.sizeBytes, 0);
+  const extra = inFlightBytes(report, sending);
+  const done = report.images.reduce(
+    (sum, image) => sum + image.uploadedBytes,
+    0,
+  );
+  const index = report.images.findIndex(image => !image.done);
+  const current = report.images[index];
+  if (!current) {
+    return { tone: 'moving', text: 'Uploading', progress: 1, canRemove: false };
+  }
+  const currentExtra = sending?.imageId === current.id ? extra : 0;
+  const percent = Math.min(
+    99, // 100% only once the server confirms; the row then moves on
+    Math.floor(
+      ((current.uploadedBytes + currentExtra) / current.sizeBytes) * 100,
+    ),
+  );
+  return {
+    tone: 'moving',
+    text: `Uploading · photo ${index + 1} of ${
+      report.images.length
+    } · ${percent}%`,
+    progress: total > 0 ? Math.min(1, (done + extra) / total) : 0,
+    canRemove: false,
+  };
+}
+
+export function describeReport(
+  report: LocalReport,
+  ctx: StatusContext,
+): StatusView {
+  switch (report.status) {
+    case 'delivered':
+      return {
+        tone: 'done',
+        text: `On the server · ${ctx.formatTime(
+          report.deliveredAt ?? report.createdAt,
+        )}`,
+        canRemove: false,
+      };
+    case 'needs_attention':
+      return {
+        tone: 'attention',
+        text: `Not sent · ${
+          report.lastError?.message ?? 'The server refused this report'
+        }`,
+        canRemove: true,
+      };
+    case 'committing':
+      return {
+        tone: 'moving',
+        text: 'Finishing upload…',
+        progress: 1,
+        canRemove: false,
+      };
+    case 'uploading':
+      return uploadingView(report, ctx.sending);
+    case 'queued': {
+      if (ctx.online === false) {
+        return {
+          tone: 'saved',
+          text: 'Saved on this phone · waiting for connection',
+          canRemove: false,
+        };
+      }
+      const retryAt = report.nextAttemptAt
+        ? Date.parse(report.nextAttemptAt)
+        : NaN;
+      if (retryAt > ctx.now) {
+        return {
+          tone: 'saved',
+          text: `Saved on this phone · retrying in ${waitText(
+            retryAt - ctx.now,
+          )}`,
+          canRemove: false,
+        };
+      }
+      return {
+        tone: 'saved',
+        text: 'Saved on this phone · waiting to send',
+        canRemove: false,
+      };
+    }
+  }
+}
+
+/** Reports that exist only on this phone and are still on their way. */
+export function pendingCount(snapshot: OutboxSnapshot): number {
+  return snapshot.reports.filter(
+    report =>
+      report.status !== 'delivered' && report.status !== 'needs_attention',
+  ).length;
+}
+
+/** The connectivity banner, or undefined when there is nothing to say. */
+export function bannerText(snapshot: OutboxSnapshot): string | undefined {
+  if (snapshot.online !== false) return undefined;
+  const pending = pendingCount(snapshot);
+  if (pending === 0) return 'Offline · new reports will be saved on this phone';
+  return `Offline · ${pending} ${
+    pending === 1 ? 'report' : 'reports'
+  } saved on this phone`;
+}

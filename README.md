@@ -37,6 +37,21 @@ app/src/
 
 `core/` is plain TypeScript that never touches React Native. That's what lets the whole upload path be tested with Jest, with fake networks that drop, hang and lose responses. The boundary is enforced, not just a convention. ESLint fails if any file in `core/` imports a package (`react-native`, a native module, anything) or reaches into `adapters/`, `ui/` or `app/`. `core/` can only import its own files.
 
+### How a report gets delivered
+
+1. **Submit** saves the report and its photo list in one database transaction. Only then does the app say "Saved on this phone".
+2. **Reports go one at a time, oldest first.** If the oldest one is waiting to retry, the newer ones wait behind it. They arrive on the server in the order they were filed, and since a failing link usually affects every report, there's little to gain by letting newer reports jump ahead. A report that needs attention steps aside so the rest can go.
+3. **For each photo, the app first asks the server how much it already has** (`HEAD`), creates the upload if it doesn't exist, then sends the rest in 256 KB pieces. After each piece the server confirms, the new offset is saved to the database.
+4. **When every photo is complete, it sends the report** (`PUT /reports/:id`). A `201` (stored now) or `200` (it was already there, our earlier reply got lost) both mean delivered. The local photos are then deleted, since the server has them.
+
+**Surviving a force-quit:** nothing is trusted from memory. On launch, any report that was mid-upload goes back in the queue, and the first `HEAD` tells the app exactly where to continue. A piece the server already received is never sent twice.
+
+**Stall timeout, not total timeout:** a request is abandoned only after 30 seconds with no progress (no bytes moving, no reply). A 2G upload can take many minutes and is never cut off while it's still moving.
+
+**Offline:** the app doesn't burn through retries while there's no network. It waits, and tries again the moment the connection comes back, or when the app returns to the foreground or a new report is submitted.
+
+All of this is tested with Jest against a fake server that follows the real server's rules and can be told to drop a connection halfway through a piece, hang, lose a response after doing the work, or answer with any status. The tests include a simulated force-quit: the engine is thrown away mid-upload and a new one is started from the saved data.
+
 ### When the app retries and when it stops
 
 Every failure falls into one of two classes:

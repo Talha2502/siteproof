@@ -9,6 +9,34 @@ Repository layout:
 
 Full setup, failure testing and design decisions to follow.
 
+## App
+
+React Native CLI (no Expo), TypeScript, Android first.
+
+What you need: Node 22.13+ (or 24.3+), JDK 17, and the Android SDK with `ANDROID_HOME` set (or `sdk.dir` in `app/android/local.properties`).
+
+```sh
+cd app
+npm install
+npm start              # Metro bundler, keep it running
+npm run android        # build, install and launch on an emulator or USB device
+npm test               # Jest
+npm run typecheck
+npm run lint
+```
+
+### Architecture: core and adapters
+
+```
+app/src/
+  core/       the delivery engine: queue, state machine, retry policy, upload algorithm
+  adapters/   implement core's ports with native libraries (SQLite, files, network, HTTP)
+  ui/         screens; they only display the engine's state
+  app/        wiring: builds the engine with the real adapters
+```
+
+`core/` is plain TypeScript that never touches React Native. That's what lets the whole upload path be tested with Jest, with fake networks that drop, hang and lose responses. The boundary is enforced, not just a convention. ESLint fails if any file in `core/` imports a package (`react-native`, a native module, anything) or reaches into `adapters/`, `ui/` or `app/`. `core/` can only import its own files.
+
 ## Server
 
 ```sh

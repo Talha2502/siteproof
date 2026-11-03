@@ -10,7 +10,7 @@ import {
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import type { OutboxSnapshot } from '../core/engine';
 import { Button } from '../ui/Button';
-import { theme } from '../ui/theme';
+import { useTheme } from '../ui/theme';
 import { createServices, type Services } from './services';
 
 const ServicesContext = createContext<Services | undefined>(undefined);
@@ -63,25 +63,44 @@ export function ServicesProvider({ children }: { children: ReactNode }) {
     );
   }
   return (
-    <View style={styles.center}>
-      {startup.state === 'starting' ? (
-        <ActivityIndicator size="large" color={theme.color.primary} />
+    <StartupScreen
+      failure={startup.state === 'failed' ? startup.message : undefined}
+      onRetry={() => {
+        setStartup({ state: 'starting' });
+        setAttempt(n => n + 1);
+      }}
+    />
+  );
+}
+
+/** Shown while storage opens (a moment), or if it can't. On the brand colour, so launch feels deliberate. */
+function StartupScreen({
+  failure,
+  onRetry,
+}: {
+  failure?: string;
+  onRetry: () => void;
+}) {
+  const t = useTheme();
+  return (
+    <View style={[styles.center, { backgroundColor: t.color.brand }]}>
+      <Text style={[t.text.display, { color: t.color.brandInk }]}>
+        SiteProof
+      </Text>
+      {failure === undefined ? (
+        <ActivityIndicator size="large" color={t.color.brandMuted} />
       ) : (
-        <>
-          <Text style={styles.title}>SiteProof couldn't open its storage</Text>
-          <Text style={styles.body}>
+        <View style={[styles.card, { backgroundColor: t.color.raised }]}>
+          <Text style={[t.text.title, styles.centered]}>
+            SiteProof couldn't open its storage
+          </Text>
+          <Text style={[t.text.body, styles.centered, { color: t.color.body }]}>
             Your saved reports are still on this phone. Try again, and if this
             keeps happening, restart the phone.
           </Text>
-          <Text style={styles.detail}>{startup.message}</Text>
-          <Button
-            label="Try again"
-            onPress={() => {
-              setStartup({ state: 'starting' });
-              setAttempt(n => n + 1);
-            }}
-          />
-        </>
+          <Text style={[t.text.small, styles.centered]}>{failure}</Text>
+          <Button label="Try again" onPress={onRetry} />
+        </View>
       )}
     </View>
   );
@@ -92,11 +111,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: theme.space.lg,
-    gap: theme.space.md,
-    backgroundColor: theme.color.background,
+    padding: 24,
+    gap: 24,
   },
-  title: { ...theme.text.title, textAlign: 'center' },
-  body: { ...theme.text.body, textAlign: 'center' },
-  detail: { ...theme.text.small, textAlign: 'center' },
+  card: { alignSelf: 'stretch', borderRadius: 20, padding: 20, gap: 12 },
+  centered: { textAlign: 'center' },
 });

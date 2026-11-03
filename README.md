@@ -25,6 +25,10 @@ npm run typecheck
 npm run lint
 ```
 
+**Connecting the phone to the server.** The app's default address is `http://localhost:3000`. On an emulator or a USB-connected phone, run `adb reverse tcp:3000 tcp:3000` and that address reaches your computer. Over Wi-Fi, open **Settings** in the app, enter the LAN URL the server prints on start (e.g. `http://192.168.1.20:3000`), tap **Test connection**, then **Save**. The address is kept on the phone and the queue retries straight away.
+
+**Emulator: give it at least 4 CPU cores** (`emulator -avd <name> -cores 4 -memory 4096`, or raise it in the AVD settings). On a 1-core emulator with software rendering, drawing the screen starves the image resizer's background thread, and photos sit on "Preparing…" for minutes. With 4 cores, a 19 MB photo is ready in under a second.
+
 ### Architecture: core and adapters
 
 ```
@@ -95,7 +99,7 @@ Each report shows one status line, in a colour that matches what it means. "Save
 | ✓ On the server · 14:32 | Done. The phone's copies of the photos are deleted |
 | ! Not sent · reason | The server refused it, and retrying won't help. **Remove** deletes it from the phone |
 
-While offline, a banner says so and counts what's waiting: "Offline · 3 reports saved on this phone". Temporary failures never show up as errors. They show as a countdown, because the report is safe and will go by itself.
+The header always shows an **Online / Offline** pill. While offline, the line under the title says so and counts what's waiting: "Offline · 3 reports saved on this phone". Otherwise it summarises the Outbox: "2 saved on this phone · 1 needs you · 3 on the server". Reports still on the phone show their photo thumbnails; delivered ones shrink to a compact row with a check. Temporary failures never show up as errors. They show as a countdown, because the report is safe and will go by itself.
 
 ### How a report gets delivered
 
@@ -129,6 +133,25 @@ Every failure falls into one of two classes:
 - **The user never sees transient failures as errors.** The report just shows "retrying in 20 s".
 - **Every retry starts by asking the server how much of each photo it already has** (`HEAD`). That one rule covers resuming after a drop, recovering from a 409, and recreating an expired upload, so the retry rules themselves stay small.
 
+### The On server tab
+
+This tab shows only what the server has confirmed, fetched live from `GET /reports`, never a local copy dressed up as server data. It reloads whenever the tab is opened, and on pull-to-refresh.
+
+- **Each report shows its photos as loaded from the server** (`/files/:id`), so seeing a photo here proves it arrived intact.
+- **Tapping a report opens it**: a full-width photo, a strip of the other photos, "Received by the server · 14:32" next to when it was filed on the phone, and for each photo its real size and dimensions as served ("1.42 MB · 2048 × 1536 · under the 5 MB limit").
+- **If the server can't be reached**, the tab says "Can't reach the server right now", reminds the user that their reports are safe in the Outbox, and offers **Try again** and **Change server**. It never shows a stale list.
+
+### Settings and Reset
+
+- **Server address**, with **Test connection** before saving. Test connection tells apart "no answer" from "that address answered, but it isn't a SiteProof server".
+- **Reset this phone** deletes everything SiteProof keeps on this phone: the queue, every local photo, and leftover picker copies. Any upload in flight is stopped first. **It never touches the server**: reports already delivered stay there. (To clear the server, use `POST /admin/reset`, below.)
+- **Reset warns before deleting unsent work.** If some reports haven't reached the server, the confirmation names them, with their photos ("2 reports haven't reached the server. Resetting deletes them permanently"), and the safe choice, "Keep my reports", comes first.
+- **After resetting, the app checks that the reports folder is really empty**, and says so if some files couldn't be deleted instead of claiming success.
+
+### Look and feel
+
+Two themes: **Harbor** (navy and blue, light) and **Slate night**, which takes over automatically when the phone is in dark mode. Headings use Manrope and body text uses Inter, both bundled with the app (SIL Open Font License, see `app/assets/fonts/`), so it looks the same on every phone. Icons are drawn with `react-native-svg`. Status colours carry meaning: amber means saved on the phone, blue means moving, green means on the server, red means it needs you. Every status also has an icon and words, so colour is never the only signal.
+
 ## Server
 
 ```sh
@@ -139,7 +162,7 @@ npm test           # node:test via tsx
 npm run typecheck
 ```
 
-Data is stored in `server/data/` (gitignored). Set `SITEPROOF_DATA_DIR` to use another location.
+Data is stored in `server/data/` (gitignored). Set `SITEPROOF_DATA_DIR` to use another location. If port 3000 is taken, run `PORT=3100 npm run dev` and use that port in `adb reverse` and in the app's Settings.
 
 ### Reports are idempotent by client ID
 

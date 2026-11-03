@@ -37,6 +37,23 @@ app/src/
 
 `core/` is plain TypeScript that never touches React Native. That's what lets the whole upload path be tested with Jest, with fake networks that drop, hang and lose responses. The boundary is enforced, not just a convention. ESLint fails if any file in `core/` imports a package (`react-native`, a native module, anything) or reaches into `adapters/`, `ui/` or `app/`. `core/` can only import its own files.
 
+### When the app retries and when it stops
+
+Every failure falls into one of two classes:
+
+| Failure | Class | What the app does |
+|---|---|---|
+| No connection, DNS failure, connection reset, stalled transfer | transient | Waits, then tries again |
+| 408, 425, 429, 500, 502, 503, 504, other 5xx | transient | Waits (as long as `Retry-After` says, if the server sent it), then tries again |
+| 409 while uploading a photo | transient | Asks the server how much it has, then continues |
+| 404 or 410 on a photo upload | transient | The upload is gone from the server; starts that photo again from zero |
+| 400, 401, 403, 413, 415, 422, other 4xx | permanent | Stops and shows "Not sent · reason" |
+| 409 on the report | permanent | Stops: a different report with this ID is on the server, which would be a bug |
+
+- **Transient failures are retried forever.** There's no attempt limit, because giving up would lose the report. The wait doubles from 1 s up to a 60 s cap. Each wait is a random amount up to that limit ("full jitter"), so a fleet of phones coming back online don't all retry at the same moment.
+- **The user never sees transient failures as errors.** The report just shows "retrying in 20 s".
+- **Every retry starts by asking the server how much of each photo it already has** (`HEAD`). That one rule covers resuming after a drop, recovering from a 409, and recreating an expired upload, so the retry rules themselves stay small.
+
 ## Server
 
 ```sh

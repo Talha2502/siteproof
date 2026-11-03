@@ -82,6 +82,21 @@ The gallery uses Android's system photo picker, which needs **no permission**. T
 - **Leaving with unsaved work asks first.** Choosing Discard deletes the processed photos straight away.
 - **"Saved on this phone" appears only after** the report and its photo list are committed to the database.
 
+### The Outbox: where every report stands
+
+Each report shows one status line, in a colour that matches what it means. "Saved on this phone" and "On the server" never appear in the same sentence:
+
+| Status | What it means |
+|---|---|
+| ● Saved on this phone · waiting for connection | Safe on the phone; the phone is offline |
+| ● Saved on this phone · retrying in 20 s | Safe on the phone; the last attempt failed and the next one is counting down |
+| ↑ Uploading · photo 2 of 5 · 43% | Moving, with a progress bar for the whole report |
+| ↑ Finishing upload… | All photos are up; the report itself is being sent |
+| ✓ On the server · 14:32 | Done. The phone's copies of the photos are deleted |
+| ! Not sent · reason | The server refused it, and retrying won't help. **Remove** deletes it from the phone |
+
+While offline, a banner says so and counts what's waiting: "Offline · 3 reports saved on this phone". Temporary failures never show up as errors. They show as a countdown, because the report is safe and will go by itself.
+
 ### How a report gets delivered
 
 1. **Submit** saves the report and its photo list in one database transaction. Only then does the app say "Saved on this phone".

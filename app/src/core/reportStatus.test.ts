@@ -1,6 +1,7 @@
 import type { OutboxSnapshot } from './engine';
 import {
   bannerText,
+  summaryText,
   describeReport,
   pendingCount,
   type StatusContext,
@@ -97,6 +98,8 @@ describe('describeReport: the wording table', () => {
       ctx({ sending: { reportId: 'r', imageId: 'b', sentBytes: 130 } }),
     );
     expect(view.text).toBe('Uploading · photo 2 of 5 · 43%');
+    expect(view.headline).toBe('Uploading · photo 2 of 5');
+    expect(view.percent).toBe(43);
     expect(view.tone).toBe('moving');
     expect(view.progress).toBeCloseTo(1430 / 5000);
   });
@@ -205,5 +208,28 @@ describe('banner', () => {
     expect(bannerText(snapshot(false, ['delivered']))).toBe(
       'Offline · new reports will be saved on this phone',
     );
+  });
+});
+
+describe('summary', () => {
+  const snapshot = (statuses: ReportStatus[]): OutboxSnapshot => ({
+    online: true,
+    reports: statuses.map((status, i) => report(status, { id: `r${i}` })),
+  });
+
+  it('counts what is on the phone, what needs the user, and what is on the server', () => {
+    expect(summaryText(snapshot(['queued', 'uploading', 'delivered']))).toBe(
+      '2 saved on this phone · 1 on the server',
+    );
+    expect(
+      summaryText(snapshot(['needs_attention', 'delivered', 'delivered'])),
+    ).toBe('1 needs you · 2 on the server');
+    expect(summaryText(snapshot(['needs_attention', 'needs_attention']))).toBe(
+      '2 need you',
+    );
+  });
+
+  it('says so when there is nothing', () => {
+    expect(summaryText(snapshot([]))).toBe('Nothing to send');
   });
 });

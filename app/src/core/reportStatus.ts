@@ -12,6 +12,10 @@ export interface StatusView {
   text: string;
   /** 0–1 across all of the report's photos, while uploading. */
   progress?: number;
+  /** While uploading: `text` without the percentage, for layouts that show `percent` on its own. */
+  headline?: string;
+  /** While uploading: the current photo's percentage (0–99). */
+  percent?: number;
   /** The user can (and should) act: only parked reports can be removed. */
   canRemove: boolean;
 }
@@ -56,11 +60,12 @@ function uploadingView(
       ((current.uploadedBytes + currentExtra) / current.sizeBytes) * 100,
     ),
   );
+  const headline = `Uploading · photo ${index + 1} of ${report.images.length}`;
   return {
     tone: 'moving',
-    text: `Uploading · photo ${index + 1} of ${
-      report.images.length
-    } · ${percent}%`,
+    text: `${headline} · ${percent}%`,
+    headline,
+    percent,
     progress: total > 0 ? Math.min(1, (done + extra) / total) : 0,
     canRemove: false,
   };
@@ -141,4 +146,25 @@ export function bannerText(snapshot: OutboxSnapshot): string | undefined {
   return `Offline · ${pending} ${
     pending === 1 ? 'report' : 'reports'
   } saved on this phone`;
+}
+
+function count(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+/** The Outbox subtitle while online, e.g. "2 saved on this phone · 1 on the server". */
+export function summaryText(snapshot: OutboxSnapshot): string {
+  const pending = pendingCount(snapshot);
+  const attention = snapshot.reports.filter(
+    r => r.status === 'needs_attention',
+  ).length;
+  const delivered = snapshot.reports.filter(
+    r => r.status === 'delivered',
+  ).length;
+  const parts = [
+    pending > 0 ? `${pending} saved on this phone` : undefined,
+    attention > 0 ? `${count(attention, 'needs', 'need')} you` : undefined,
+    delivered > 0 ? `${delivered} on the server` : undefined,
+  ].filter((part): part is string => part !== undefined);
+  return parts.length > 0 ? parts.join(' · ') : 'Nothing to send';
 }

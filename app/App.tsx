@@ -6,7 +6,8 @@ import { Navigation } from './src/ui/navigation';
 function App() {
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle="dark-content" />
+      {/* Every screen starts with the dark brand band (or a photo), in both themes. */}
+      <StatusBar barStyle="light-content" />
       <ServicesProvider>
         <Navigation />
       </ServicesProvider>

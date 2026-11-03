@@ -3,15 +3,19 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { theme } from './theme';
+import { Icon, type IconName } from './Icon';
+import { useTheme } from './theme';
 
 interface ButtonProps {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'danger';
+  /** primary: solid. tonal: soft fill. danger: red outline (destructive). */
+  variant?: 'primary' | 'tonal' | 'danger';
+  icon?: IconName;
   disabled?: boolean;
   busy?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -22,13 +26,23 @@ export function Button({
   label,
   onPress,
   variant = 'primary',
+  icon,
   disabled = false,
   busy = false,
   style,
   accessibilityHint,
 }: ButtonProps) {
+  const t = useTheme();
+  const c = t.color;
   const inactive = disabled || busy;
-  const primary = variant === 'primary';
+  const look = {
+    primary: { bg: c.primary, fg: c.onPrimary, border: 'transparent' },
+    tonal: { bg: c.primarySoft, fg: c.primary, border: 'transparent' },
+    danger: { bg: 'transparent', fg: c.dangerFg, border: c.dangerFg },
+  }[variant];
+  const bg = inactive && variant === 'primary' ? c.line : look.bg;
+  const fg = inactive ? c.muted : look.fg;
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -39,29 +53,23 @@ export function Button({
       android_ripple={{ color: 'rgba(0,0,0,0.12)' }}
       style={({ pressed }) => [
         styles.base,
-        primary ? styles.primary : styles.secondary,
-        variant === 'danger' && styles.danger,
-        inactive &&
-          (primary ? styles.primaryDisabled : styles.secondaryDisabled),
+        {
+          backgroundColor: bg,
+          borderColor: inactive && variant === 'danger' ? c.line : look.border,
+        },
         pressed && styles.pressed,
         style,
       ]}
     >
       {busy ? (
         <ActivityIndicator
-          color={primary ? theme.color.onPrimary : theme.color.primary}
+          color={variant === 'primary' ? c.onPrimary : c.primary}
         />
       ) : (
-        <Text
-          style={[
-            styles.label,
-            primary ? styles.labelPrimary : styles.labelSecondary,
-            variant === 'danger' && styles.labelDanger,
-            inactive && !primary && styles.labelDisabled,
-          ]}
-        >
-          {label}
-        </Text>
+        <View style={styles.content}>
+          {icon && <Icon name={icon} size={20} color={fg} />}
+          <Text style={[t.text.button, { color: fg }]}>{label}</Text>
+        </View>
       )}
     </Pressable>
   );
@@ -69,26 +77,14 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: theme.touch,
-    paddingHorizontal: theme.space.md,
-    borderRadius: theme.radius.md,
+    minHeight: 52,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  primary: { backgroundColor: theme.color.primary },
-  primaryDisabled: { backgroundColor: theme.color.disabled },
-  secondary: {
-    backgroundColor: theme.color.surface,
-    borderWidth: 1,
-    borderColor: theme.color.border,
-  },
-  secondaryDisabled: { backgroundColor: theme.color.background },
-  danger: { borderColor: theme.color.danger },
-  pressed: { opacity: 0.85 },
-  label: { fontSize: 16, fontWeight: '600' },
-  labelPrimary: { color: theme.color.onPrimary },
-  labelSecondary: { color: theme.color.primary },
-  labelDanger: { color: theme.color.danger },
-  labelDisabled: { color: theme.color.disabled },
+  content: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  pressed: { opacity: 0.88 },
 });

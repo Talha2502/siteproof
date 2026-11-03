@@ -1,40 +1,46 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { theme } from '../theme';
+import { useTheme } from '../theme';
 
-export function ConnectivityBanner({ text }: { text: string }) {
+/** The online/offline pill in the Outbox's header band. */
+export function ConnectivityBanner({
+  online,
+}: {
+  online: boolean | undefined;
+}) {
+  const t = useTheme();
+  if (online === undefined) return null;
   return (
     <View
-      style={styles.banner}
-      accessibilityRole="alert"
+      style={[styles.pill, { backgroundColor: t.color.brandChip }]}
       accessibilityLiveRegion="polite"
     >
-      <View style={styles.dot} />
-      <Text style={styles.text}>{text}</Text>
+      <View
+        style={[
+          styles.dot,
+          { backgroundColor: online ? t.color.onlineDot : t.color.offlineDot },
+        ]}
+      />
+      <Text
+        style={[
+          styles.text,
+          { color: t.color.brandInk, fontFamily: t.font.semibold },
+        ]}
+      >
+        {online ? 'Online' : 'Offline'}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  banner: {
+  pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.space.sm,
-    paddingHorizontal: theme.space.md,
-    paddingVertical: theme.space.sm + 2,
-    backgroundColor: theme.color.pendingBg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.color.border,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.color.pending,
-  },
-  text: {
-    ...theme.text.body,
-    color: theme.color.pending,
-    fontWeight: '600',
-    flex: 1,
-  },
+  dot: { width: 7, height: 7, borderRadius: 4 },
+  text: { fontSize: 13 },
 });

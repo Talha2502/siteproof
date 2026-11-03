@@ -8,19 +8,28 @@ import {
   View,
 } from 'react-native';
 import type { DraftPhoto } from '../../core/draft';
-import { theme } from '../theme';
+import { Icon } from '../Icon';
+import { useTheme } from '../theme';
 
 interface PhotoGridProps {
   photos: DraftPhoto[];
   onRemove: (id: string) => void;
+  /** Shows an "Add photo" tile when there is room for another. */
+  onAdd?: () => void;
 }
 
-export function PhotoGrid({ photos, onRemove }: PhotoGridProps) {
+const GAP = 10;
+const COLUMNS = 3;
+
+export function PhotoGrid({ photos, onRemove, onAdd }: PhotoGridProps) {
+  const t = useTheme();
+  const c = t.color;
   // Explicit square sizes from the measured width: a percentage width with
   // aspectRatio in a wrapping row collapsed to zero height on Android.
   const [width, setWidth] = useState(0);
   const size = Math.floor((width - GAP * (COLUMNS - 1)) / COLUMNS);
-  if (photos.length === 0) return null;
+  const tile = { width: size, height: size };
+
   return (
     <View
       style={styles.grid}
@@ -29,7 +38,7 @@ export function PhotoGrid({ photos, onRemove }: PhotoGridProps) {
       {photos.map((photo, index) => (
         <View
           key={photo.id}
-          style={[styles.tile, { width: size, height: size }]}
+          style={[styles.tile, tile, { backgroundColor: c.placeholder }]}
           accessible
           accessibilityLabel={`Photo ${index + 1}, ${
             photo.state === 'ready'
@@ -39,11 +48,6 @@ export function PhotoGrid({ photos, onRemove }: PhotoGridProps) {
               : `failed: ${photo.message}`
           }`}
         >
-          {photo.state === 'failed' && (
-            <View style={[styles.fill, styles.failed]}>
-              <Text style={styles.failedText}>{photo.message}</Text>
-            </View>
-          )}
           {/* Only the processed photo is shown. Decoding a 20–75 MB original just
               for a thumbnail starved the resizer of memory and stalled it. */}
           {photo.state === 'ready' && (
@@ -55,9 +59,38 @@ export function PhotoGrid({ photos, onRemove }: PhotoGridProps) {
             />
           )}
           {photo.state === 'processing' && (
-            <View style={[styles.fill, styles.overlay]}>
-              <ActivityIndicator color={theme.color.onPrimary} />
-              <Text style={styles.overlayText}>Preparing…</Text>
+            <View
+              style={[
+                styles.fill,
+                styles.overlay,
+                { backgroundColor: c.scrim },
+              ]}
+            >
+              <ActivityIndicator color="#FFFFFF" />
+              <Text
+                style={[styles.overlayText, { fontFamily: t.font.semibold }]}
+              >
+                Preparing…
+              </Text>
+            </View>
+          )}
+          {photo.state === 'failed' && (
+            <View
+              style={[
+                styles.fill,
+                styles.failed,
+                { backgroundColor: c.dangerBg },
+              ]}
+            >
+              <Icon name="alert" size={20} color={c.dangerFg} />
+              <Text
+                style={[
+                  styles.failedText,
+                  { color: c.dangerFg, fontFamily: t.font.medium },
+                ]}
+              >
+                {photo.message}
+              </Text>
             </View>
           )}
           <Pressable
@@ -67,52 +100,57 @@ export function PhotoGrid({ photos, onRemove }: PhotoGridProps) {
             hitSlop={8}
             style={styles.remove}
           >
-            <Text style={styles.removeText}>✕</Text>
+            <Icon name="close" size={14} color="#FFFFFF" strokeWidth={3} />
           </Pressable>
         </View>
       ))}
+      {onAdd && size > 0 && (
+        <Pressable
+          onPress={onAdd}
+          accessibilityRole="button"
+          accessibilityLabel="Add photo"
+          style={[styles.tile, styles.add, tile, { borderColor: c.line }]}
+        >
+          <Icon name="plus" size={24} color={c.muted} />
+          <Text
+            style={[
+              styles.addText,
+              { color: c.muted, fontFamily: t.font.semibold },
+            ]}
+          >
+            Add photo
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }
 
-const GAP = theme.space.sm;
-const COLUMNS = 3;
-
 const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: GAP },
-  tile: {
-    borderRadius: theme.radius.sm,
-    overflow: 'hidden',
-    backgroundColor: theme.color.border,
-  },
+  tile: { borderRadius: 16, overflow: 'hidden' },
   fill: { ...StyleSheet.absoluteFill },
-  overlay: {
-    backgroundColor: theme.color.overlay,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.space.xs,
-  },
-  overlayText: {
-    color: theme.color.onPrimary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  failed: {
-    backgroundColor: theme.color.dangerBg,
-    padding: theme.space.sm,
-    paddingTop: 36,
-  },
-  failedText: { color: theme.color.danger, fontSize: 12 },
+  overlay: { alignItems: 'center', justifyContent: 'center', gap: 6 },
+  overlayText: { color: '#FFFFFF', fontSize: 12 },
+  failed: { padding: 10, gap: 6, justifyContent: 'center' },
+  failedText: { fontSize: 12, lineHeight: 16 },
   remove: {
     position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.color.overlay,
+    top: 6,
+    right: 6,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  removeText: { color: theme.color.onPrimary, fontSize: 16, fontWeight: '700' },
+  add: {
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  addText: { fontSize: 13 },
 });

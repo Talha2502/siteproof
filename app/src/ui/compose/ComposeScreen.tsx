@@ -1,4 +1,3 @@
-import { useHeaderHeight } from '@react-navigation/elements';
 import { usePreventRemove, useNavigation } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -6,6 +5,7 @@ import {
   AppState,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -28,20 +28,23 @@ import {
   addDisabledReason,
   checkSubmit,
   hasContent,
-  photoCounterText,
+  photoCount,
   slotsLeft,
 } from '../../core/draft';
-import { MAX_DESCRIPTION_LENGTH } from '../../core/engine';
+import { MAX_DESCRIPTION_LENGTH, MAX_IMAGES } from '../../core/engine';
+import { BrandHeader } from '../BrandHeader';
 import { Button } from '../Button';
-import { theme } from '../theme';
+import { Icon } from '../Icon';
+import { useTheme } from '../theme';
 import { CameraNotice } from './CameraNotice';
 import { PhotoGrid } from './PhotoGrid';
 import { useDraft } from './useDraft';
 
 export function ComposeScreen() {
   const navigation = useNavigation();
+  const t = useTheme();
+  const c = t.color;
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const { draft, setDescription, addPicked, remove, discard, submit } =
     useDraft();
   const [cameraNotice, setCameraNotice] = useState<'denied' | 'blocked'>();
@@ -52,6 +55,7 @@ export function ComposeScreen() {
 
   const check = checkSubmit(draft);
   const full = addDisabledReason(draft);
+  const processing = draft.photos.some(photo => photo.state === 'processing');
 
   // Permission granted in Settings? Notice it when the user comes back, no restart needed.
   useEffect(() => {
@@ -108,6 +112,14 @@ export function ComposeScreen() {
     handlePick(await pickFromGallery(slotsLeft(draft)));
   }, [draft, handlePick]);
 
+  const onAddTile = useCallback(() => {
+    Alert.alert('Add a photo', undefined, [
+      { text: 'Take photo', onPress: onCamera },
+      { text: 'Choose from gallery', onPress: onGallery },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [onCamera, onGallery]);
+
   const onSubmit = useCallback(async () => {
     setSaving(true);
     setSaveError(undefined);
@@ -137,83 +149,134 @@ export function ComposeScreen() {
   return (
     // Edge-to-edge (Android 15+) means the window no longer resizes for the
     // keyboard, so this screen makes room itself on both platforms.
-    <KeyboardAvoidingView
-      style={styles.screen}
-      behavior="padding"
-      keyboardVerticalOffset={headerHeight}
-    >
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
+    <KeyboardAvoidingView style={styles.screen} behavior="padding">
+      <BrandHeader
+        title="New report"
+        subtitle="Saved on this phone the moment you submit"
+        left={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            onPress={() => navigation.goBack()}
+            hitSlop={8}
+            style={[styles.close, { backgroundColor: c.brandChip }]}
+          >
+            <Icon name="close" size={22} color={c.brandInk} strokeWidth={2.4} />
+          </Pressable>
+        }
       >
-        <View style={styles.section}>
-          <Text style={theme.text.heading} nativeID="descriptionLabel">
-            What did you find?
-          </Text>
-          <TextInput
-            accessibilityLabelledBy="descriptionLabel"
-            style={styles.input}
-            value={draft.description}
-            onChangeText={setDescription}
-            placeholder="Describe the issue and where it is"
-            placeholderTextColor={theme.color.muted}
-            multiline
-            maxLength={MAX_DESCRIPTION_LENGTH}
-            textAlignVertical="top"
-          />
-          <Text style={[theme.text.small, styles.counter]}>
-            {draft.description.length} / {MAX_DESCRIPTION_LENGTH}
-          </Text>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.section}>
+            <Text
+              style={[t.text.heading, styles.indent]}
+              nativeID="descriptionLabel"
+            >
+              What did you find?
+            </Text>
+            <TextInput
+              accessibilityLabelledBy="descriptionLabel"
+              style={[
+                styles.input,
+                {
+                  backgroundColor: c.raised,
+                  borderColor: c.line,
+                  color: c.ink,
+                  fontFamily: t.font.regular,
+                },
+              ]}
+              value={draft.description}
+              onChangeText={setDescription}
+              placeholder="Describe the issue and where it is"
+              placeholderTextColor={c.muted}
+              multiline
+              maxLength={MAX_DESCRIPTION_LENGTH}
+              textAlignVertical="top"
+            />
+            <Text style={[t.text.small, styles.counter]}>
+              {draft.description.length} / {MAX_DESCRIPTION_LENGTH}
+            </Text>
+          </View>
 
-        <View style={styles.section}>
-          <View style={styles.row}>
-            <Text style={theme.text.heading}>Photos</Text>
-            <Text style={theme.text.small}>{photoCounterText(draft)}</Text>
+          <View style={styles.section}>
+            <View style={[styles.row, styles.indent]}>
+              <Text style={t.text.heading}>Photos</Text>
+              <View style={[styles.chip, { backgroundColor: c.primarySoft }]}>
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: c.primary, fontFamily: t.font.semibold },
+                  ]}
+                >
+                  {photoCount(draft)} of {MAX_IMAGES}
+                </Text>
+              </View>
+            </View>
+            <PhotoGrid
+              photos={draft.photos}
+              onRemove={remove}
+              onAdd={full ? undefined : onAddTile}
+            />
+            <View style={styles.row}>
+              <Button
+                label="Take photo"
+                icon="camera"
+                variant="tonal"
+                onPress={onCamera}
+                disabled={!!full}
+                style={styles.grow}
+              />
+              <Button
+                label="Gallery"
+                icon="image"
+                variant="tonal"
+                onPress={onGallery}
+                disabled={!!full}
+                style={styles.grow}
+              />
+            </View>
+            {full && <Text style={[t.text.small, styles.indent]}>{full}</Text>}
+            {pickerError && (
+              <Text style={[t.text.small, { color: c.dangerFg }]}>
+                {pickerError}
+              </Text>
+            )}
+            {cameraNotice && (
+              <CameraNotice
+                kind={cameraNotice}
+                onAllow={onCamera}
+                onOpenSettings={openAppSettings}
+              />
+            )}
           </View>
-          <PhotoGrid photos={draft.photos} onRemove={remove} />
-          <View style={styles.row}>
-            <Button
-              label="Take photo"
-              variant="secondary"
-              onPress={onCamera}
-              disabled={!!full}
-              style={styles.grow}
-            />
-            <Button
-              label="Choose photos"
-              variant="secondary"
-              onPress={onGallery}
-              disabled={!!full}
-              style={styles.grow}
-            />
-          </View>
-          {full && <Text style={theme.text.small}>{full}</Text>}
-          {pickerError && <Text style={styles.error}>{pickerError}</Text>}
-          {cameraNotice && (
-            <CameraNotice
-              kind={cameraNotice}
-              onAllow={onCamera}
-              onOpenSettings={openAppSettings}
-            />
-          )}
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </BrandHeader>
 
       <View
         style={[
           styles.footer,
-          { paddingBottom: theme.space.md + insets.bottom },
+          {
+            backgroundColor: c.surface,
+            borderTopColor: c.line,
+            paddingBottom: 16 + insets.bottom,
+          },
         ]}
       >
-        {saveError && <Text style={styles.error}>{saveError}</Text>}
+        {saveError && (
+          <Text style={[t.text.small, { color: c.dangerFg }]}>{saveError}</Text>
+        )}
         {!check.ok && (
-          <Text
-            style={[theme.text.small, styles.reason]}
-            accessibilityLiveRegion="polite"
-          >
-            {check.reason}
-          </Text>
+          <View style={styles.reason} accessibilityLiveRegion="polite">
+            <Icon
+              name={processing ? 'clock' : 'alert'}
+              size={16}
+              color={c.muted}
+              strokeWidth={2.2}
+            />
+            <Text style={t.text.small}>{check.reason}</Text>
+          </View>
         )}
         <Button
           label="Submit report"
@@ -228,33 +291,45 @@ export function ComposeScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.color.background },
-  content: { padding: theme.space.md, gap: theme.space.lg },
-  section: { gap: theme.space.sm },
+  screen: { flex: 1 },
+  content: { padding: 16, paddingTop: 22, gap: 22 },
+  section: { gap: 10 },
+  indent: { marginHorizontal: 4 },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: theme.space.sm,
+    gap: 10,
   },
   grow: { flex: 1 },
-  input: {
-    ...theme.text.body,
-    minHeight: 120,
-    backgroundColor: theme.color.surface,
-    borderColor: theme.color.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.md,
-    padding: theme.space.md,
+  close: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  counter: { alignSelf: 'flex-end' },
-  error: { ...theme.text.small, color: theme.color.danger },
-  reason: { textAlign: 'center' },
+  input: {
+    minHeight: 112,
+    borderWidth: 1.5,
+    borderRadius: 16,
+    padding: 14,
+    fontSize: 16,
+    lineHeight: 23,
+  },
+  counter: { alignSelf: 'flex-end', marginRight: 4 },
+  chip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  chipText: { fontSize: 13 },
   footer: {
-    padding: theme.space.md,
-    gap: theme.space.sm,
-    backgroundColor: theme.color.surface,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.color.border,
+  },
+  reason: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
 });

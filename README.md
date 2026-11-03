@@ -49,6 +49,31 @@ app/src/
 
 These were checked on an Android emulator against the real server with uploads throttled to 2G speeds, 30% of upload requests cut off mid-body, and the app force-stopped partway through. Result: exactly one report on the server, both photos byte-for-byte identical, and no local files left behind.
 
+### Photos
+
+Every photo is shrunk on the phone before it's queued, so nothing over the server's 5 MB limit is ever sent. The aim is **1.5 MB or less**: small enough for 2G, still sharp enough to read a crack or a label.
+
+1. Resize to at most **2048 px** on the long edge, JPEG quality **80**.
+2. Still over 1.5 MB? Drop the quality to **70, then 60, then 50**.
+3. Still over? Go down to **1600 px** and repeat (80 → 50).
+4. If even that misses 1.5 MB, keep the smallest version, as long as it's under **5 MB**. If it isn't, the photo is refused with a clear message. A photo over 5 MB is never queued.
+
+Quality goes down before resolution because for site photos, detail matters more than file size: 2048 px at quality 60 still reads better than 1600 px at quality 80.
+
+The resizing runs in native code (`@bam.tech/react-native-image-resizer`), not in JavaScript, so the app never freezes. It shrinks the image while decoding it, so even a huge photo is never fully loaded into memory. It also turns the pixels to match the camera's EXIF orientation, so photos never arrive sideways, and writes a plain JPEG with no metadata, so **no GPS location leaves the phone**.
+
+Tested on an Android emulator:
+
+| Original | Result | Time |
+|---|---|---|
+| 19.4 MB, 4000×3000, pure noise (worst case for JPEG) | 1.42 MB, 2048×1536 | ~2–3 s |
+| 71.6 MB, 6000×4500 | 1.03 MB, 2048×1536 | ~2 s |
+| 7.3 MB stored sideways (EXIF "rotate 90°") | 0.96 MB, 1536×2048, upright | ~1 s |
+
+### Permissions
+
+The gallery uses Android's system photo picker, which needs **no permission**. The camera asks for the CAMERA permission the first time it's used. If the user says no, Compose explains why and offers **Open Settings**. Turning the permission on in Settings takes effect when you return to the app, no restart needed.
+
 ### How a report gets delivered
 
 1. **Submit** saves the report and its photo list in one database transaction. Only then does the app say "Saved on this phone".

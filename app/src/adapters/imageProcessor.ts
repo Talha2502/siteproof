@@ -106,6 +106,38 @@ export async function processImage(
   }
 }
 
+/**
+ * Deletes the copy of an original that the photo picker left in our cache
+ * (a full-size camera photo, often 10–75 MB). Only touches files inside the
+ * app's cache folder; gallery and camera originals are never affected.
+ */
+export async function deletePickerCopy(sourceUri: string): Promise<void> {
+  const path = sourceUri.replace(/^file:\/\//, '');
+  if (path.startsWith(`${FS.CachesDirectoryPath}/`)) await removeQuietly(path);
+}
+
+/**
+ * react-native-image-picker (8.3) copies each picked photo into our cache twice
+ * and only tells us about one copy (getOriginalFilePath makes a second it never
+ * uses). Call only when no picker can be open and nothing is being processed:
+ * when Compose closes, and at app start.
+ */
+export async function deletePickerLeftovers(): Promise<void> {
+  try {
+    const entries = await FS.readDir(FS.CachesDirectoryPath);
+    for (const entry of entries) {
+      if (
+        entry.isFile() &&
+        entry.name.startsWith('rn_image_picker_lib_temp_')
+      ) {
+        await removeQuietly(entry.path);
+      }
+    }
+  } catch {
+    // Best effort: the OS clears the cache under storage pressure anyway.
+  }
+}
+
 /** Deletes one processed photo, e.g. when the user removes it from a draft. */
 export async function deleteProcessedImage(
   reportId: string,

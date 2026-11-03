@@ -74,6 +74,14 @@ Tested on an Android emulator:
 
 The gallery uses Android's system photo picker, which needs **no permission**. The camera asks for the CAMERA permission the first time it's used. If the user says no, Compose explains why and offers **Open Settings**. Turning the permission on in Settings takes effect when you return to the app, no restart needed.
 
+### Writing a report
+
+- **Photos are prepared as soon as they're picked**, one at a time, so Submit is instant. Each one shows "Preparing…" until it's ready.
+- **One at a time** on purpose: decoding several 20–75 MB originals at once can run a phone out of memory. For the same reason, the screen never shows a preview of the original. Each tile shows the small processed photo once it's ready.
+- **Submit stays disabled until the report is valid, and the screen always says why:** "Add a description to submit", "Preparing 2 photos…", "Remove the photo that couldn't be processed". At 5 photos the add buttons turn off, with a line explaining why.
+- **Leaving with unsaved work asks first.** Choosing Discard deletes the processed photos straight away.
+- **"Saved on this phone" appears only after** the report and its photo list are committed to the database.
+
 ### How a report gets delivered
 
 1. **Submit** saves the report and its photo list in one database transaction. Only then does the app say "Saved on this phone".
@@ -186,3 +194,8 @@ curl -X POST localhost:3000/admin/reset     # delete every report and upload on 
 ```
 
 `PUT` replaces the whole configuration: any field you leave out goes back to its default. To point the script at another machine, set `SITEPROOF_URL=http://192.168.1.20:3000`.
+
+## Known gaps
+
+- **A report being written isn't saved until Submit.** If the app is killed mid-compose, the typed description is lost. Its processed photos are cleaned up automatically on the next launch. Everything *submitted* survives.
+- **The photo picker leaves a spare copy of each photo** (react-native-image-picker 8.3 copies each picked photo into the cache twice, and only reports one copy). SiteProof deletes both copies: one as soon as the photo is processed, the other when the Compose screen closes or on the next launch.

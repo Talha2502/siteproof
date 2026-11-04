@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The server runs over plain http on the local network (a laptop's LAN IP, or localhost via
+  adb reverse). Android can't allow-list "any LAN address", so cleartext is allowed for all hosts.
+  This overrides usesCleartextTraffic, which React Native forces to false in release builds.
+  A production build would use https and drop this file.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

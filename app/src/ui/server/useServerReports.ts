@@ -16,13 +16,17 @@ export type ServerReportsState =
 export function useServerReports() {
   const { serverUrl } = useServices();
   const [state, setState] = useState<ServerReportsState>({ kind: 'loading' });
+  /** Pull to refresh in progress (drives RefreshControl). */
   const [refreshing, setRefreshing] = useState(false);
+  /** Any request in progress: pull, the refresh button, Try again, or opening the tab. */
+  const [checking, setChecking] = useState(false);
   const latest = useRef(0);
 
   const load = useCallback(
     async (pulled: boolean) => {
       const request = ++latest.current;
       if (pulled) setRefreshing(true);
+      setChecking(true);
       try {
         const reports = await fetchServerReports(serverUrl());
         if (request === latest.current) {
@@ -38,7 +42,10 @@ export function useServerReports() {
           });
         }
       } finally {
-        if (request === latest.current) setRefreshing(false);
+        if (request === latest.current) {
+          setRefreshing(false);
+          setChecking(false);
+        }
       }
     },
     [serverUrl],
@@ -53,6 +60,7 @@ export function useServerReports() {
   return {
     state,
     refreshing,
+    checking,
     refresh: () => load(true),
     retry: () => load(false),
   };

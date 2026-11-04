@@ -4,6 +4,7 @@ import {
   type CompositeNavigationProp,
 } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,6 +14,8 @@ import {
   StyleSheet,
   Text,
   View,
+  type ImageStyle,
+  type StyleProp,
 } from 'react-native';
 import type { ServerReport } from '../../adapters/reportsApi';
 import { useServices } from '../../app/ServicesProvider';
@@ -47,6 +50,36 @@ function Received({ t, count }: { t: Theme; count: number }) {
   );
 }
 
+/** A photo served by the server, with a spinner until it has loaded (slow on 2G). */
+function ServerPhoto({
+  uri,
+  style,
+}: {
+  uri: string;
+  style: StyleProp<ImageStyle>;
+}) {
+  const t = useTheme();
+  const [loading, setLoading] = useState(true);
+  return (
+    <View
+      style={[
+        style,
+        styles.photoWrap,
+        { backgroundColor: t.color.placeholder },
+      ]}
+    >
+      <Image
+        source={{ uri }}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+        resizeMethod="resize"
+        onLoadEnd={() => setLoading(false)}
+      />
+      {loading && <ActivityIndicator size="small" color={t.color.muted} />}
+    </View>
+  );
+}
+
 function ReportCard({
   report,
   onOpen,
@@ -58,15 +91,8 @@ function ReportCard({
   const c = t.color;
   const [first, second, third] = report.photoUrls;
   const more = report.photoUrls.length - 3;
-  const photo = (uri: string | undefined, style: object) =>
-    uri ? (
-      <Image
-        source={{ uri }}
-        style={[style, { backgroundColor: c.placeholder }]}
-        resizeMode="cover"
-        resizeMethod="resize"
-      />
-    ) : null;
+  const photo = (uri: string | undefined, style: StyleProp<ImageStyle>) =>
+    uri ? <ServerPhoto uri={uri} style={style} /> : null;
 
   return (
     <Pressable
@@ -153,19 +179,27 @@ export function OnServerScreen() {
       >
     >();
   const { serverUrl } = useServices();
-  const { state, refreshing, refresh, retry } = useServerReports();
+  const { state, refreshing, checking, refresh, retry } = useServerReports();
 
   const subtitle = (
     <View style={styles.subtitle}>
-      <View
-        style={[
-          styles.dot,
-          {
-            backgroundColor:
-              state.kind === 'unreachable' ? c.offlineDot : c.onlineDot,
-          },
-        ]}
-      />
+      {checking ? (
+        <ActivityIndicator
+          size="small"
+          color={c.muted}
+          style={styles.subtitleSpinner}
+        />
+      ) : (
+        <View
+          style={[
+            styles.dot,
+            {
+              backgroundColor:
+                state.kind === 'unreachable' ? c.offlineDot : c.onlineDot,
+            },
+          ]}
+        />
+      )}
       <Text
         style={[
           styles.subtitleText,
@@ -193,11 +227,22 @@ export function OnServerScreen() {
       right={
         <Pressable
           onPress={retry}
+          disabled={checking}
           accessibilityRole="button"
           accessibilityLabel="Refresh"
+          accessibilityState={{ busy: checking }}
           style={[styles.refresh, { backgroundColor: c.brandChip }]}
         >
-          <Icon name="refresh" size={20} color={c.brandInk} strokeWidth={2.2} />
+          {checking ? (
+            <ActivityIndicator size="small" color={c.brandInk} />
+          ) : (
+            <Icon
+              name="refresh"
+              size={20}
+              color={c.brandInk}
+              strokeWidth={2.2}
+            />
+          )}
         </Pressable>
       }
     >
@@ -237,7 +282,12 @@ export function OnServerScreen() {
               Your reports are safe in the Outbox and will go automatically.
             </Text>
           </View>
-          <Button label="Try again" onPress={retry} style={styles.tryAgain} />
+          <Button
+            label="Try again"
+            onPress={retry}
+            busy={checking}
+            style={styles.tryAgain}
+          />
           <Text style={[t.text.small, styles.centered]}>
             {serverUrl()} ·{' '}
             <Text
@@ -299,6 +349,7 @@ const styles = StyleSheet.create({
   subtitle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   subtitleText: { fontSize: 15, flexShrink: 1 },
   dot: { width: 8, height: 8, borderRadius: 4 },
+  subtitleSpinner: { margin: -5, transform: [{ scale: 0.5 }] },
   refresh: {
     width: 44,
     height: 44,
@@ -355,6 +406,11 @@ const styles = StyleSheet.create({
   mosaicSide: { flex: 1, gap: 6 },
   mosaicSmall: { flex: 1, borderRadius: 14, overflow: 'hidden' },
   more: { alignItems: 'center', justifyContent: 'center' },
+  photoWrap: {
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   moreScrim: { backgroundColor: 'rgba(0,0,0,0.45)' },
   moreText: { color: '#FFFFFF', fontSize: 20 },
   cardBody: { paddingHorizontal: 6, paddingBottom: 6, gap: 6 },

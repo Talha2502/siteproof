@@ -73,7 +73,7 @@ export function ServicesProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/** Shown while storage opens (a moment), or if it can't. On the brand colour, so launch feels deliberate. */
+/** Shown while storage opens (a moment), or if it can't. */
 function StartupScreen({
   failure,
   onRetry,
@@ -88,7 +88,7 @@ function StartupScreen({
         SiteProof
       </Text>
       {failure === undefined ? (
-        <ActivityIndicator size="large" color={t.color.brandMuted} />
+        <ActivityIndicator size="large" color={t.color.primary} />
       ) : (
         <View style={[styles.card, { backgroundColor: t.color.raised }]}>
           <Text style={[t.text.title, styles.centered]}>

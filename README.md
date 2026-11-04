@@ -94,7 +94,8 @@ Each report shows one status line, in a colour that matches what it means. "Save
 |---|---|
 | ● Saved on this phone · waiting for connection | Safe on the phone; the phone is offline |
 | ● Saved on this phone · retrying in 20 s | Safe on the phone; the last attempt failed and the next one is counting down |
-| ↑ Uploading · photo 2 of 5 · 43% | Moving, with a progress bar for the whole report |
+| ● Saved on this phone · connecting… | An attempt has started, but the server hasn't answered yet |
+| ↑ Uploading · photo 2 of 5 · 43% | Bytes are moving. The percentage and the bar both measure the whole report; "photo 2 of 5" says where it is |
 | ↑ Finishing upload… | All photos are up; the report itself is being sent |
 | ✓ On the server · 14:32 | Done. The phone's copies of the photos are deleted |
 | ! Not sent · reason | The server refused it, and retrying won't help. **Remove** deletes it from the phone |
@@ -233,7 +234,12 @@ curl -X POST localhost:3000/admin/reset     # delete every report and upload on 
 
 `PUT` replaces the whole configuration: any field you leave out goes back to its default. To point the script at another machine, set `SITEPROOF_URL=http://192.168.1.20:3000`.
 
+**"Uploading" is only shown once bytes actually move.** On a dead link (for example, the phone fell back to mobile data and can't reach a LAN server), an attempt waits up to the 30 s stall timeout before failing. Showing "Uploading · 0%" during that wait, then flipping back to "retrying", looked like progress that wasn't happening. Found while testing on a real phone.
+
 ## Known gaps
+
+- **Uploads run while the app is open or recently backgrounded, not while it's fully closed.** Phones with aggressive battery management (Infinix, Xiaomi, Oppo and others) stop background apps within minutes. Nothing is lost: the reports are in the database, and the next launch resumes from the server's offsets. True background upload needs Android's WorkManager or a foreground service, and iOS background URLSession: that's the first thing I'd add with another day.
+- **Release builds allow plain `http://`** (`network_security_config.xml`), because the test server runs on a laptop's LAN IP without TLS, and Android can't allow-list "any local address". A production build would talk to an `https` server and drop this.
 
 - **A report being written isn't saved until Submit.** If the app is killed mid-compose, the typed description is lost. Its processed photos are cleaned up automatically on the next launch. Everything *submitted* survives.
 - **The photo picker leaves a spare copy of each photo** (react-native-image-picker 8.3 copies each picked photo into the cache twice, and only reports one copy). SiteProof deletes both copies: one as soon as the photo is processed, the other when the Compose screen closes or on the next launch.

@@ -47,6 +47,7 @@ export interface NewReport {
   images: NewImage[];
 }
 
+/** Set once bytes have moved in the current attempt, and kept until the attempt ends. */
 export interface SendingProgress {
   reportId: string;
   imageId: string;
@@ -424,8 +425,10 @@ export class UploadEngine {
         image.id === imageId ? { ...image, ...progress } : image,
       ),
     });
-    // The confirmed offset now includes what was "in flight".
-    if (this.sending?.imageId === imageId) this.sending = undefined;
+    // The confirmed offset now includes what was "in flight". Keep `sending` itself:
+    // it tells the UI this attempt is really moving bytes.
+    if (this.sending?.imageId === imageId)
+      this.sending = { ...this.sending, sentBytes: 0 };
     this.emit();
     await this.deps.repository.saveImageProgress(reportId, imageId, progress);
   }

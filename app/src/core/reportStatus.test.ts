@@ -83,7 +83,7 @@ describe('describeReport: the wording table', () => {
     );
   });
 
-  it('uploading: which photo, and its percentage including bytes in flight', () => {
+  it('uploading: which photo, and the whole-report percentage including bytes in flight', () => {
     const r = report('uploading', {
       images: [
         image('a', 1000, 1000),
@@ -97,18 +97,32 @@ describe('describeReport: the wording table', () => {
       r,
       ctx({ sending: { reportId: 'r', imageId: 'b', sentBytes: 130 } }),
     );
-    expect(view.text).toBe('Uploading · photo 2 of 5 · 43%');
+    // The text and the bar show the same number: 1430 of 5000 bytes.
+    expect(view.text).toBe('Uploading · photo 2 of 5 · 28%');
     expect(view.headline).toBe('Uploading · photo 2 of 5');
-    expect(view.percent).toBe(43);
+    expect(view.percent).toBe(28);
     expect(view.tone).toBe('moving');
     expect(view.progress).toBeCloseTo(1430 / 5000);
   });
 
-  it('ignores bytes in flight for a different report', () => {
+  it('says "connecting" until bytes move in this attempt, not "Uploading"', () => {
+    const r = report('uploading', { images: [image('a', 1000, 500)] });
+    for (const sending of [
+      undefined,
+      { reportId: 'other', imageId: 'x', sentBytes: 400 },
+    ]) {
+      const view = describeReport(r, ctx({ sending }));
+      expect(view.text).toBe('Saved on this phone · connecting…');
+      expect(view.tone).toBe('saved');
+      expect(view.progress).toBeUndefined();
+    }
+  });
+
+  it('keeps showing progress between chunks of a moving attempt', () => {
     const r = report('uploading', { images: [image('a', 1000, 500)] });
     const view = describeReport(
       r,
-      ctx({ sending: { reportId: 'other', imageId: 'x', sentBytes: 400 } }),
+      ctx({ sending: { reportId: 'r', imageId: 'a', sentBytes: 0 } }),
     );
     expect(view.text).toBe('Uploading · photo 1 of 1 · 50%');
   });

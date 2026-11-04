@@ -14,7 +14,7 @@ export interface StatusView {
   progress?: number;
   /** While uploading: `text` without the percentage, for layouts that show `percent` on its own. */
   headline?: string;
-  /** While uploading: the current photo's percentage (0–99). */
+  /** While uploading: the whole report's percentage (0–99), matching `progress`. */
   percent?: number;
   /** The user can (and should) act: only parked reports can be removed. */
   canRemove: boolean;
@@ -34,39 +34,39 @@ function waitText(ms: number): string {
   return `${Math.ceil(seconds / 60)} min`;
 }
 
-function inFlightBytes(report: LocalReport, sending?: SendingProgress): number {
-  return sending?.reportId === report.id ? sending.sentBytes : 0;
-}
-
 function uploadingView(
   report: LocalReport,
   sending?: SendingProgress,
 ): StatusView {
+  // An attempt has started but nothing has moved yet: on a dead link this lasts until the
+  // stall timeout. Saying "Uploading" here would be a claim the network hasn't backed up.
+  if (sending?.reportId !== report.id) {
+    return {
+      tone: 'saved',
+      text: 'Saved on this phone · connecting…',
+      canRemove: false,
+    };
+  }
   const total = report.images.reduce((sum, image) => sum + image.sizeBytes, 0);
-  const extra = inFlightBytes(report, sending);
   const done = report.images.reduce(
     (sum, image) => sum + image.uploadedBytes,
     0,
   );
   const index = report.images.findIndex(image => !image.done);
-  const current = report.images[index];
-  if (!current) {
+  if (index === -1) {
     return { tone: 'moving', text: 'Uploading', progress: 1, canRemove: false };
   }
-  const currentExtra = sending?.imageId === current.id ? extra : 0;
-  const percent = Math.min(
-    99, // 100% only once the server confirms; the row then moves on
-    Math.floor(
-      ((current.uploadedBytes + currentExtra) / current.sizeBytes) * 100,
-    ),
-  );
+  // One number for the whole report, so the text and the bar always agree.
+  const progress =
+    total > 0 ? Math.min(1, (done + sending.sentBytes) / total) : 0;
+  const percent = Math.min(99, Math.floor(progress * 100)); // 100% only once the server confirms
   const headline = `Uploading · photo ${index + 1} of ${report.images.length}`;
   return {
     tone: 'moving',
     text: `${headline} · ${percent}%`,
     headline,
     percent,
-    progress: total > 0 ? Math.min(1, (done + extra) / total) : 0,
+    progress,
     canRemove: false,
   };
 }

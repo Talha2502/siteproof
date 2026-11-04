@@ -151,7 +151,9 @@ This tab shows only what the server has confirmed, fetched live from `GET /repor
 
 ### Look and feel
 
-Two themes: **Harbor** (navy and blue, light) and **Slate night**, which takes over automatically when the phone is in dark mode. Headings use Manrope and body text uses Inter, both bundled with the app (SIL Open Font License, see `app/assets/fonts/`), so it looks the same on every phone. Icons are drawn with `react-native-svg`. Status colours carry meaning: amber means saved on the phone, blue means moving, green means on the server, red means it needs you. Every status also has an icon and words, so colour is never the only signal.
+Neutral surfaces (white and soft grey, or near-black when the phone is in dark mode) with one accent: the blue of the app icon. Colour is saved for meaning. Each report's status is a small tinted pill: amber means saved on the phone, blue means moving, green means on the server, red means it needs you. Every status also has an icon (or a spinner while work is happening) and words, so colour is never the only signal. Anything that waits shows a spinner: connecting and uploading reports, photos being prepared, the On server list and its photos, the connection check, and busy buttons.
+
+Headings use Manrope and body text uses Inter, both bundled with the app (SIL Open Font License, see `app/assets/fonts/`), so it looks the same on every phone. Icons are drawn with `react-native-svg`.
 
 ## Server
 

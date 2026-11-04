@@ -210,7 +210,7 @@ export function ComposeScreen() {
                     { color: c.primary, fontFamily: t.font.semibold },
                   ]}
                 >
-                  {photoCount(draft)} of {MAX_IMAGES}
+                  {photoCount(draft)} of {MAX_IMAGES} photos
                 </Text>
               </View>
             </View>

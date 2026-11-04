@@ -16,8 +16,8 @@ interface BrandHeaderProps {
 }
 
 /**
- * The navy band with a large title, and the rounded sheet that overlaps it.
- * The band runs under the status bar (edge-to-edge), so it pads by the top inset.
+ * A large title on the page background, with the screen's content below it.
+ * The header runs under the status bar (edge-to-edge), so it pads by the top inset.
  */
 export function BrandHeader({
   title,
@@ -34,7 +34,7 @@ export function BrandHeader({
       <View
         style={[
           styles.band,
-          { backgroundColor: t.color.brand, paddingTop: insets.top + 18 },
+          { backgroundColor: t.color.brand, paddingTop: insets.top + 8 },
         ]}
       >
         {(eyebrow || right || left) && (
@@ -76,7 +76,7 @@ export function BrandHeader({
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  band: { paddingHorizontal: 22, paddingBottom: 40, gap: 10 },
+  band: { paddingHorizontal: 20, paddingBottom: 6, gap: 6 },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -84,11 +84,5 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   subtitle: { fontSize: 15 },
-  sheet: {
-    flex: 1,
-    marginTop: -22,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    overflow: 'hidden',
-  },
+  sheet: { flex: 1 },
 });

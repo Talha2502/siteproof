@@ -1,14 +1,16 @@
 import { useColorScheme, type TextStyle } from 'react-native';
 
-// Harbor (light) and Slate night (dark), chosen by the phone's dark-mode
-// setting. Text colours meet 4.5:1 on their backgrounds, and the four status
-// colours differ in lightness as well as hue.
+// Daylight (light) and Night (dark), chosen by the phone's dark-mode setting.
+// Neutral surfaces with one accent (the icon's blue); colour is kept for meaning:
+// amber = saved on this phone, blue = moving, green = on the server, red = needs you.
+// Text colours meet 4.5:1 on their backgrounds.
 
 export interface Palette {
-  /** The navy header band. */
+  /** The header area behind the large title. */
   brand: string;
   brandInk: string;
   brandMuted: string;
+  /** Round controls in the header (close, refresh) and the online pill. */
   brandChip: string;
   bg: string;
   surface: string;
@@ -33,67 +35,66 @@ export interface Palette {
   shadow: string;
   fabShadow: string;
   placeholder: string;
-  /** Status dot inside the brand band. */
   offlineDot: string;
   onlineDot: string;
 }
 
-const harbor: Palette = {
-  brand: '#0E1A3A',
-  brandInk: '#FFFFFF',
-  brandMuted: '#AEB9D6',
-  brandChip: 'rgba(255,255,255,0.12)',
-  bg: '#F2F4F8',
+const daylight: Palette = {
+  brand: '#F6F7F9',
+  brandInk: '#0B0D12',
+  brandMuted: '#5F6672',
+  brandChip: '#EAECF0',
+  bg: '#F6F7F9',
   surface: '#FFFFFF',
   raised: '#FFFFFF',
-  ink: '#0F172A',
-  body: '#334155',
-  muted: '#5B6476',
-  line: '#E2E7EF',
+  ink: '#0B0D12',
+  body: '#3A404C',
+  muted: '#5F6672',
+  line: '#E4E7EC',
   primary: '#2B5BE0',
   onPrimary: '#FFFFFF',
-  primarySoft: '#E8EEFD',
-  savedFg: '#8A5300',
-  savedBg: '#FFF2D3',
-  doneFg: '#13693F',
-  doneBg: '#E0F2E8',
-  dangerFg: '#B42318',
-  dangerBg: '#FDEBE9',
-  scrim: 'rgba(15,23,42,0.55)',
-  shadow: '0px 1px 2px rgba(15,23,42,0.05), 0px 8px 24px rgba(15,23,42,0.07)',
-  fabShadow: '0px 6px 20px rgba(43,91,224,0.35)',
-  placeholder: '#D9DFEA',
-  offlineDot: '#F4C46C',
-  onlineDot: '#74D4A0',
+  primarySoft: '#EDF2FE',
+  savedFg: '#8F5200',
+  savedBg: '#FDF1DA',
+  doneFg: '#14713F',
+  doneBg: '#E3F4EA',
+  dangerFg: '#B9232B',
+  dangerBg: '#FDECEC',
+  scrim: 'rgba(11,13,18,0.5)',
+  shadow: '0px 1px 2px rgba(11,13,18,0.04), 0px 4px 16px rgba(11,13,18,0.05)',
+  fabShadow: '0px 6px 20px rgba(43,91,224,0.32)',
+  placeholder: '#E9ECF1',
+  offlineDot: '#D98A00',
+  onlineDot: '#1F9D57',
 };
 
-const slateNight: Palette = {
-  brand: '#121A2C',
-  brandInk: '#EEF2F8',
-  brandMuted: '#97A1B4',
-  brandChip: 'rgba(255,255,255,0.08)',
-  bg: '#0B1019',
-  surface: '#141B29',
-  raised: '#182133',
-  ink: '#EEF2F8',
-  body: '#C9D1DE',
-  muted: '#97A1B4',
-  line: '#253049',
-  primary: '#89A9FF',
-  onPrimary: '#0B1020',
-  primarySoft: '#1C2948',
-  savedFg: '#F4C46C',
-  savedBg: '#32270E',
-  doneFg: '#74D4A0',
-  doneBg: '#112E1E',
-  dangerFg: '#FF9080',
-  dangerBg: '#3A1916',
+const night: Palette = {
+  brand: '#0B0C0F',
+  brandInk: '#F2F3F5',
+  brandMuted: '#8D929C',
+  brandChip: '#1C1F25',
+  bg: '#0B0C0F',
+  surface: '#141619',
+  raised: '#17191D',
+  ink: '#F2F3F5',
+  body: '#C9CCD3',
+  muted: '#8D929C',
+  line: '#24272D',
+  primary: '#7D9DFF',
+  onPrimary: '#0B0C0F',
+  primarySoft: '#1A2236',
+  savedFg: '#F2C26B',
+  savedBg: '#2B2210',
+  doneFg: '#6FD39B',
+  doneBg: '#11281B',
+  dangerFg: '#FF8A80',
+  dangerBg: '#321616',
   scrim: 'rgba(0,0,0,0.62)',
   shadow: '0px 1px 2px rgba(0,0,0,0.5)',
   fabShadow: '0px 6px 20px rgba(0,0,0,0.5)',
-  placeholder: '#222C42',
-  offlineDot: '#F4C46C',
-  onlineDot: '#74D4A0',
+  placeholder: '#22252B',
+  offlineDot: '#F2C26B',
+  onlineDot: '#6FD39B',
 };
 
 /** Bundled fonts (assets/fonts). Each weight is its own file, so no fontWeight is set alongside. */
@@ -155,8 +156,8 @@ function makeTheme(color: Palette, dark: boolean) {
 
 export type Theme = ReturnType<typeof makeTheme>;
 
-const light = makeTheme(harbor, false);
-const dark = makeTheme(slateNight, true);
+const light = makeTheme(daylight, false);
+const dark = makeTheme(night, true);
 
 /** The current theme. Re-renders when the phone switches dark mode on or off. */
 export function useTheme(): Theme {

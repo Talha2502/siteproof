@@ -148,7 +148,7 @@ export function SettingsScreen() {
                 onPress={test}
                 disabled={!normalised}
                 busy={check.kind === 'checking'}
-                style={styles.grow}
+                style={styles.wide}
               />
               <Button
                 label="Save"
@@ -266,6 +266,8 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', gap: 10 },
   grow: { flex: 1 },
+  // The longer label gets more of the row, so it fits on one line.
+  wide: { flex: 1.7 },
   result: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   resultText: { fontSize: 14, flexShrink: 1 },
   stats: { flexDirection: 'row' },

@@ -68,7 +68,13 @@ export function Button({
       ) : (
         <View style={styles.content}>
           {icon && <Icon name={icon} size={20} color={fg} />}
-          <Text style={[t.text.button, { color: fg }]}>{label}</Text>
+          <Text
+            style={[t.text.button, styles.label, { color: fg }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {label}
+          </Text>
         </View>
       )}
     </Pressable>
@@ -85,6 +91,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  content: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    maxWidth: '100%',
+  },
+  label: { flexShrink: 1 },
   pressed: { opacity: 0.88 },
 });

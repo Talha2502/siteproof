@@ -5,6 +5,7 @@ import {
   Image,
   Pressable,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   View,
@@ -84,6 +85,8 @@ export function ServerReportScreen({ navigation, route }: Props) {
 
   return (
     <View style={[styles.screen, { backgroundColor: c.bg }]}>
+      {/* The photo runs under the status bar: light icons, restored on leaving. */}
+      <StatusBar barStyle="light-content" />
       <View style={[styles.hero, { backgroundColor: c.placeholder }]}>
         {url && (
           <Image

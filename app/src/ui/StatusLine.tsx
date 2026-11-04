@@ -1,8 +1,9 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import type { StatusTone, StatusView } from '../core/reportStatus';
 import { Icon, type IconName } from './Icon';
 import { useTheme, type Palette } from './theme';
 
+// 'moving' shows a spinner instead (status.active); its icon is the fallback.
 const ICON: Record<StatusTone, IconName> = {
   saved: 'phone',
   moving: 'upload',
@@ -27,9 +28,10 @@ export function toneColors(
 }
 
 /**
- * One report's status: an icon that says where the work is (a phone: saved
- * here; an arrow: moving; a check: on the server; an alert: needs you), the
- * words, and while uploading the percentage and a progress bar.
+ * One report's status as a tinted pill: an icon that says where the work is (a
+ * phone: saved here; a check: on the server; an alert: needs you), or a spinner
+ * while work is happening, then the words. While uploading, the percentage sits
+ * beside the pill and a progress bar runs underneath.
  */
 export function StatusLine({ status }: { status: StatusView }) {
   const t = useTheme();
@@ -37,20 +39,29 @@ export function StatusLine({ status }: { status: StatusView }) {
   return (
     <View style={styles.wrap}>
       <View style={styles.row}>
-        <View style={[styles.badge, { backgroundColor: bg }]}>
-          <Icon
-            name={ICON[status.tone]}
-            size={17}
-            color={fg}
-            strokeWidth={2.4}
-          />
+        <View style={[styles.pill, { backgroundColor: bg }]}>
+          {status.active ? (
+            <ActivityIndicator size="small" color={fg} style={styles.spinner} />
+          ) : (
+            <Icon
+              name={ICON[status.tone]}
+              size={15}
+              color={fg}
+              strokeWidth={2.4}
+            />
+          )}
+          <Text
+            style={[styles.text, { color: fg, fontFamily: t.font.semibold }]}
+          >
+            {status.headline ?? status.text}
+          </Text>
         </View>
-        <Text style={[styles.text, { color: fg, fontFamily: t.font.semibold }]}>
-          {status.headline ?? status.text}
-        </Text>
         {status.percent !== undefined && (
           <Text
-            style={[styles.percent, { color: fg, fontFamily: t.font.display }]}
+            style={[
+              styles.percent,
+              { color: t.color.ink, fontFamily: t.font.display },
+            ]}
           >
             {status.percent}%
           </Text>
@@ -74,17 +85,21 @@ export function StatusLine({ status }: { status: StatusView }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 12 },
+  wrap: { gap: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  badge: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+  pill: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    flexShrink: 1,
   },
-  text: { flex: 1, fontSize: 15 },
-  percent: { fontSize: 15 },
-  track: { height: 6, borderRadius: 3, overflow: 'hidden' },
-  fill: { height: 6, borderRadius: 3 },
+  // The small spinner is 20 dp: scale it down, and pull the margins in to match.
+  spinner: { margin: -2, transform: [{ scale: 0.8 }] },
+  text: { flexShrink: 1, fontSize: 13.5 },
+  percent: { marginLeft: 'auto', fontSize: 15 },
+  track: { height: 5, borderRadius: 3, overflow: 'hidden' },
+  fill: { height: 5, borderRadius: 3 },
 });

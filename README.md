@@ -5,9 +5,28 @@ Offline-first field reporting app (React Native + TypeScript). An inspector file
 Repository layout:
 
 - `server/` — Express backend with resumable uploads and on-demand fault injection
-- `app/` — React Native CLI app (Android first, iOS supported)
+- `app/` — React Native CLI app (Android; iOS not yet built or tested)
 
-Full setup, failure testing and design decisions to follow.
+## Quick start
+
+You need Node 22.13+ (or 24.3+), JDK 17, the Android SDK with `ANDROID_HOME` set, and an Android phone or emulator. If Gradle stops with "Failed to apply plugin 'com.facebook.react.rootproject'", it can't find the SDK: set `ANDROID_HOME` (on macOS usually `~/Library/Android/sdk`), or create `app/android/local.properties` with `sdk.dir=/path/to/Android/sdk`.
+
+```sh
+# 1. Server, in one terminal (leave it running; it prints its LAN address)
+cd server && npm install && npm run dev
+
+# 2. App, in a second terminal from the repo root. A release build runs without Metro and starts fast
+cd app && npm install
+cd android && ./gradlew assembleRelease
+adb install -r app/build/outputs/apk/release/app-release.apk
+
+# 3. Let the phone reach the server
+adb reverse tcp:3000 tcp:3000   # USB or emulator: the app's default http://localhost:3000 now works
+```
+
+Over Wi-Fi instead of USB: open **Settings** in the app, enter the LAN address the server printed (e.g. `http://192.168.1.20:3000`), tap **Test connection**, then **Save**.
+
+Then try the main scenario: airplane mode on → file a few reports (one with 5 camera photos) → force-quit → reopen → `npm run fault -- none --bps 25000` (in `server/`) to slow uploads to 2G speed → airplane mode off → toggle it on and off twice during the upload → watch every report reach "On the server", exactly once. Check with `curl localhost:3000/reports`.
 
 ## App
 
@@ -18,14 +37,16 @@ What you need: Node 22.13+ (or 24.3+), JDK 17, and the Android SDK with `ANDROID
 ```sh
 cd app
 npm install
-npm start              # Metro bundler, keep it running
-npm run android        # build, install and launch on an emulator or USB device
+npm start              # Metro bundler, keep it running (debug builds only)
+npm run android        # debug build: install and launch on an emulator or USB device
 npm test               # Jest
 npm run typecheck
 npm run lint
 ```
 
 **Connecting the phone to the server.** The app's default address is `http://localhost:3000`. On an emulator or a USB-connected phone, run `adb reverse tcp:3000 tcp:3000` and that address reaches your computer. Over Wi-Fi, open **Settings** in the app, enter the LAN URL the server prints on start (e.g. `http://192.168.1.20:3000`), tap **Test connection**, then **Save**. The address is kept on the phone and the queue retries straight away.
+
+**Debug or release?** A debug build loads its JavaScript from Metro on your computer, so the phone also needs `adb reverse tcp:8081 tcp:8081`, and a cold start is slow. For testing delivery (force-quits, airplane mode), use the release build from the quick start. It's self-contained and signed with the debug key, so it installs directly.
 
 **Emulator: give it at least 4 CPU cores** (`emulator -avd <name> -cores 4 -memory 4096`, or raise it in the AVD settings). On a 1-core emulator with software rendering, drawing the screen starves the image resizer's background thread, and photos sit on "Preparing…" for minutes. With 4 cores, a 19 MB photo is ready in under a second.
 
@@ -101,6 +122,8 @@ Each report shows one status line, in a colour that matches what it means. "Save
 | ! Not sent · reason | The server refused it, and retrying won't help. **Remove** deletes it from the phone |
 
 The header always shows an **Online / Offline** pill. While offline, the line under the title says so and counts what's waiting: "Offline · 3 reports saved on this phone". Otherwise it summarises the Outbox: "2 saved on this phone · 1 needs you · 3 on the server". Reports still on the phone show their photo thumbnails; delivered ones shrink to a compact row with a check. Temporary failures never show up as errors. They show as a countdown, because the report is safe and will go by itself.
+
+**"Uploading" is only shown once bytes actually move.** On a dead link (for example, the phone fell back to mobile data and can't reach a LAN server), an attempt waits up to the 30 s stall timeout before failing. Showing "Uploading · 0%" during that wait, then flipping back to "retrying", looked like progress that wasn't happening. Until the server answers, the report says "Saved on this phone · connecting…". Found while testing on a real phone.
 
 ### How a report gets delivered
 
@@ -236,12 +259,39 @@ curl -X POST localhost:3000/admin/reset     # delete every report and upload on 
 
 `PUT` replaces the whole configuration: any field you leave out goes back to its default. To point the script at another machine, set `SITEPROOF_URL=http://192.168.1.20:3000`.
 
-**"Uploading" is only shown once bytes actually move.** On a dead link (for example, the phone fell back to mobile data and can't reach a LAN server), an attempt waits up to the 30 s stall timeout before failing. Showing "Uploading · 0%" during that wait, then flipping back to "retrying", looked like progress that wasn't happening. Found while testing on a real phone.
+### Simulating 2G
+
+- **Server throttle (works for any phone):** `npm run fault -- none --bps 25000` limits upload bodies to about 25 KB/s, roughly a good 2G link. `--bps 3000` is a bad one. Add `--latency 300` for round-trip delay.
+- **Android emulator:** Extended controls (`…`) → Cellular → Network type **GSM** or **EDGE**, or start it with `emulator -avd <name> -netspeed edge -netdelay gprs`.
+- **Real phone:** Settings → Mobile network → Preferred network type → **2G only**, if the phone offers it. This only applies on mobile data, so the server must be reachable from the internet (the server throttle is easier).
+- **Drops:** toggle airplane mode during an upload, or `npm run fault -- drop uploads 0.3` to cut 30% of upload requests halfway through.
+
+## Tested on a real phone
+
+Infinix X672, Android 12, release build, server on a laptop over Wi-Fi:
+
+| Scenario | Result |
+|---|---|
+| Airplane mode → 3 reports (5, 2 and 1 camera photos) → force-quit → reopen → 2G throttle → two drops → Wi-Fi back | All 3 on the server exactly once, 8 of 8 photos complete, upright, largest 312 KB |
+| Same again after fixing the status line (5 + 1 photos) | Both exactly once, 6 of 6 photos complete |
+| Phone switched to mobile data mid-upload (server unreachable) | Kept retrying quietly; resumed from byte 262,144 of the stuck photo when Wi-Fi returned |
+| `error503` on reports | "Retrying in N s", growing waits, then delivered by itself when the fault was cleared |
+| `reject400` on reports | "Not sent · reason" with Remove, no further retries; never reached the server |
+| `hang` on uploads | "Connecting…" for 30 s, then "retrying"; delivered once the hang was cleared |
+| Camera denied, then allowed in Settings | Explained, with Open Settings; worked on return without restarting |
+
+## What I'd do with another day
+
+1. **True background upload.** Hand the queue to Android's WorkManager (with a foreground service and notification for long uploads) and iOS background `URLSession`, so reports keep moving while the app is closed. The core engine already runs without a screen, so this is mainly a new adapter and a way to start the engine from the background.
+2. **iOS build and test.** The code is cross-platform and avoids Android-only APIs, but it hasn't been built or tested on iOS yet.
+3. **Save drafts.** Persist the report being written, so a crash mid-compose doesn't lose the typed description.
+4. **HTTPS and authentication** for a real deployment, which would also remove the cleartext allowance.
+5. **Upload photos in parallel within a report**, once there's evidence it helps on a real 2G link (on a single slow link it usually doesn't).
 
 ## Known gaps
 
-- **Uploads run while the app is open or recently backgrounded, not while it's fully closed.** Phones with aggressive battery management (Infinix, Xiaomi, Oppo and others) stop background apps within minutes. Nothing is lost: the reports are in the database, and the next launch resumes from the server's offsets. True background upload needs Android's WorkManager or a foreground service, and iOS background URLSession: that's the first thing I'd add with another day.
+- **Uploads run while the app is open or recently backgrounded, not while it's fully closed.** Phones with aggressive battery management (Infinix, Xiaomi, Oppo and others) stop background apps within minutes. Nothing is lost: the reports are in the database, and the next launch resumes from the server's offsets. True background upload is the first item under "What I'd do with another day".
 - **Release builds allow plain `http://`** (`network_security_config.xml`), because the test server runs on a laptop's LAN IP without TLS, and Android can't allow-list "any local address". A production build would talk to an `https` server and drop this.
-
+- **iOS hasn't been built or tested.** Android is the tested platform.
 - **A report being written isn't saved until Submit.** If the app is killed mid-compose, the typed description is lost. Its processed photos are cleaned up automatically on the next launch. Everything *submitted* survives.
 - **The photo picker leaves a spare copy of each photo** (react-native-image-picker 8.3 copies each picked photo into the cache twice, and only reports one copy). SiteProof deletes both copies: one as soon as the photo is processed, the other when the Compose screen closes or on the next launch.

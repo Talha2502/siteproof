@@ -16,6 +16,8 @@ export interface StatusView {
   headline?: string;
   /** While uploading: the whole report's percentage (0–99), matching `progress`. */
   percent?: number;
+  /** Work is happening right now (connecting, uploading, finishing): the UI shows a spinner. */
+  active?: boolean;
   /** The user can (and should) act: only parked reports can be removed. */
   canRemove: boolean;
 }
@@ -44,6 +46,7 @@ function uploadingView(
     return {
       tone: 'saved',
       text: 'Saved on this phone · connecting…',
+      active: true,
       canRemove: false,
     };
   }
@@ -54,7 +57,13 @@ function uploadingView(
   );
   const index = report.images.findIndex(image => !image.done);
   if (index === -1) {
-    return { tone: 'moving', text: 'Uploading', progress: 1, canRemove: false };
+    return {
+      tone: 'moving',
+      text: 'Uploading',
+      progress: 1,
+      active: true,
+      canRemove: false,
+    };
   }
   // One number for the whole report, so the text and the bar always agree.
   const progress =
@@ -67,6 +76,7 @@ function uploadingView(
     headline,
     percent,
     progress,
+    active: true,
     canRemove: false,
   };
 }
@@ -97,6 +107,7 @@ export function describeReport(
         tone: 'moving',
         text: 'Finishing upload…',
         progress: 1,
+        active: true,
         canRemove: false,
       };
     case 'uploading':

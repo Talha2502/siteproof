@@ -166,6 +166,21 @@ describe('describeReport: the wording table', () => {
     });
   });
 
+  it('is active (spinner) only while connecting, uploading or finishing', () => {
+    const r = (status: ReportStatus) =>
+      report(status, { images: [image('a', 1000, 0)] });
+    const active = (status: ReportStatus, sending?: StatusContext['sending']) =>
+      describeReport(r(status), ctx({ sending })).active === true;
+    expect(active('uploading')).toBe(true); // connecting
+    expect(
+      active('uploading', { reportId: 'r', imageId: 'a', sentBytes: 10 }),
+    ).toBe(true);
+    expect(active('committing')).toBe(true);
+    expect(active('queued')).toBe(false);
+    expect(active('delivered')).toBe(false);
+    expect(active('needs_attention')).toBe(false);
+  });
+
   it('never mixes "saved" and "on the server" in one sentence', () => {
     const statuses: ReportStatus[] = [
       'queued',
